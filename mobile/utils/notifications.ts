@@ -1,16 +1,26 @@
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// Configure notification behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// Safe check: expo-notifications push functionality is disabled in Expo Go on SDK 53+
+const isExpoGo = Constants.appOwnership === 'expo';
+
+// Configure notification behavior safely
+try {
+  if (!isExpoGo) {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+  }
+} catch (e) {
+  console.warn('[Notifications] setNotificationHandler skipped in current environment:', e);
+}
 
 export const requestNotificationPermissions = async (): Promise<boolean> => {
+  if (isExpoGo) return false;
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -22,12 +32,13 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
 
     return finalStatus === 'granted';
   } catch (error) {
-    console.warn('Failed to request notification permissions:', error);
+    console.warn('[Notifications] Failed to request permissions:', error);
     return false;
   }
 };
 
 export const sendBookingConfirmationNotification = async (eventName: string, bookingRef: string) => {
+  if (isExpoGo) return;
   try {
     const hasPermission = await requestNotificationPermissions();
     if (!hasPermission) return;
@@ -41,11 +52,12 @@ export const sendBookingConfirmationNotification = async (eventName: string, boo
       trigger: null, // trigger immediately
     });
   } catch (error) {
-    console.warn('Failed to send confirmation notification:', error);
+    console.warn('[Notifications] Failed to send confirmation notification:', error);
   }
 };
 
 export const sendBookingCancellationNotification = async (eventName: string) => {
+  if (isExpoGo) return;
   try {
     const hasPermission = await requestNotificationPermissions();
     if (!hasPermission) return;
@@ -59,6 +71,7 @@ export const sendBookingCancellationNotification = async (eventName: string) => 
       trigger: null, // trigger immediately
     });
   } catch (error) {
-    console.warn('Failed to send cancellation notification:', error);
+    console.warn('[Notifications] Failed to send cancellation notification:', error);
   }
 };
+
